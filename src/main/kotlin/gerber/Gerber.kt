@@ -1,12 +1,23 @@
 package gerber
 
+import java.math.BigDecimal
+
 class Gerber {
     var fileUnit = MeasuringUnit.Millimeter
     val buildingBlocks = mutableListOf<GerberBuildingBlock>()
+    val decimalDigits = 6
+    val integerDigits = 6
 
     inline operator fun <reified T : GerberBuildingBlock> T.unaryPlus() {
         buildingBlocks += this
     }
+
+    val BigDecimal.gerberNumber get() =
+        "${
+            "%0${integerDigits}d".format(toBigInteger().intValueExact())
+        }${
+            "%.${decimalDigits}f".format(this).split(".").last()
+        }"
 
 }
 
