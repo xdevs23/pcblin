@@ -7,7 +7,7 @@ unless stated otherwise. Files that start with a SPDX-License-Identifier comment
 override the global license.
 
     PCBlin – PCB file generator written in Kotlin
-    Copyright (C) 2021-2023  Simão Gomes Viana
+    Copyright (C) 2024 Simão Gomes Viana
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
