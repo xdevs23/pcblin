@@ -5,8 +5,9 @@ import java.math.BigDecimal
 class Gerber {
     var fileUnit = MeasuringUnit.Millimeter
     val buildingBlocks = mutableListOf<GerberBuildingBlock>()
-    val decimalDigits = 6
-    val integerDigits = 6
+    var decimalDigits = 6
+    var integerDigits = 6
+    var plottingMode: PlottingMode? = null
 
     inline operator fun <reified T : GerberBuildingBlock> T.unaryPlus() {
         buildingBlocks += this
@@ -14,15 +15,34 @@ class Gerber {
 
     val BigDecimal.gerberNumber get() =
         "${
-            "%0${integerDigits}d".format(toBigInteger().intValueExact())
+            "%0${integerDigits}d".format(toBigInteger().intValueExact()).trimStart('0')
         }${
             "%.${decimalDigits}f".format(this).split(".").last()
-        }"
+        }".let { str ->
+            if (str.all { it == '0' }) "0"
+            else str
+        }
 
+    val Int.gerberNumber get() = toBigDecimal().gerberNumber
+    val Double.gerberNumber get() = toBigDecimal().gerberNumber
+    val Float.gerberNumber get() = toBigDecimal().gerberNumber
+
+    override fun toString(): String {
+        return (
+                buildingBlocks + GerberCommand("M02*")
+        ).joinToString("\n")
+    }
+
+    fun usingAperture(aperture: Int, block: Gerber.() -> Unit) {
+        currentAperture = aperture
+        block()
+    }
 }
 
+inline fun gerber(block: Gerber.() -> Unit) = Gerber().apply(block)
+
 val freeCharacter = "[^%*]"
-val word = "$freeCharacter+[*]"
+val word = "($freeCharacter|$freeCharacter[*]\\n$freeCharacter)+[*]"
 val wordRegex = Regex(word)
 val wordCommand = word
 val extendedCommand = "%$word+%"
