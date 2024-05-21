@@ -89,8 +89,8 @@ private var nextApertureId = 10
 fun Gerber.simpleAperture(templateName: String, parameters: List<Any> = listOf()) =
     apertureDefinition(templateName = templateName, parameters = parameters)
 
-inline fun <reified N : Number> Gerber.simpleAperture(templateName: String, vararg parameters: N) =
-    simpleAperture(templateName, parameters.toList())
+inline fun <reified N : Number?> Gerber.simpleAperture(templateName: String, vararg parameters: N) =
+    simpleAperture(templateName, parameters.toList().filterNotNull())
 
 private fun formatAny(any: Any) = when (any) {
     is BigDecimal, is Double, is Float -> "%.3f".format(any)
@@ -141,6 +141,15 @@ fun Gerber.apertureMacro(name: String, body: MacroBody.() -> Unit): String {
         "%AM$finalName*\n$macroBody%"
     )
     return finalName.toString()
+}
+
+fun Gerber.apertureBlock(
+    id: Int = nextApertureId++,
+    block: Gerber.() -> Unit
+) {
+    +GerberCommand("%ABD$id*%")
+    block()
+    +GerberCommand("%AB*%")
 }
 
 var Gerber.currentAperture: Int
@@ -246,8 +255,16 @@ enum class Polarity(val polarityString: String) {
 }
 
 fun Gerber.polarity(polarity: Polarity, block: Gerber.() -> Unit) {
+    val lastPolarity = currentPolarity
     +GerberCommand("%LP${polarity.polarityString}*%")
+    currentPolarity = polarity
+
     block()
+
+    lastPolarity?.let { pol ->
+        +GerberCommand("%LP$pol*%")
+    }
+    currentPolarity = lastPolarity
 }
 
 fun Gerber.region(block: Gerber.() -> Unit) {
@@ -255,3 +272,71 @@ fun Gerber.region(block: Gerber.() -> Unit) {
     block()
     +GerberCommand("G37*")
 }
+
+enum class MirrorType(val mirrorString: String) {
+    None("N"), X("X"),
+    Y("Y"), XY("XY")
+}
+
+fun Gerber.mirror(mirrorType: MirrorType, block: Gerber.() -> Unit) {
+    val lastMirrorType = currentMirrorType
+    +GerberCommand("%LM${mirrorType.mirrorString}*%")
+    currentMirrorType = mirrorType
+
+    block()
+
+    lastMirrorType?.let { mir ->
+        +GerberCommand("%LM$mir*%")
+    }
+    currentMirrorType = lastMirrorType
+}
+
+/**
+ * Rotates counterclockwise (4.9.4)
+ */
+fun Gerber.rotate(degrees: Double, block: Gerber.() -> Unit) {
+    val lastRotation = currentRotation
+    +GerberCommand("%LR${formatAny(degrees)}*%")
+    currentRotation = degrees
+
+    block()
+
+    lastRotation?.let { rot ->
+        +GerberCommand("%LR${formatAny(rot)}*%")
+    }
+    currentRotation = lastRotation
+}
+
+fun Gerber.scale(scaleBy: Double, block: Gerber.() -> Unit) {
+    require(scaleBy > .0) {
+        "Scale must be > 0"
+    }
+    val lastScale = currentScale
+    +GerberCommand("%LS${formatAny(scaleBy)}*%")
+    currentScale = scaleBy
+
+    block()
+
+    lastScale?.let { scale ->
+        +GerberCommand("%LS${formatAny(scale)}*%")
+    }
+    currentScale = lastScale
+}
+
+fun Gerber.stepRepeat(
+    x: Int = 1,
+    y: Int = 1,
+    xDistance: Double = .0,
+    yDistance: Double = .0,
+    block: Gerber.() -> Unit,
+) {
+    require(x > 0) { "x repeats must be > 0"}
+    require(y > 0) { "y repeats must be > 0"}
+    require(xDistance >= 0) { "x distance must be positive"}
+    require(yDistance >= 0) { "y distance must be positive"}
+
+    +GerberCommand("%SRX${x}Y${y}I${formatAny(xDistance)}J${formatAny(yDistance)}*%")
+    block()
+    +GerberCommand("%SR*%")
+}
+

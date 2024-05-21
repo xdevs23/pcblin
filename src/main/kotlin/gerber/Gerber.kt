@@ -8,6 +8,10 @@ class Gerber {
     var decimalDigits = 6
     var integerDigits = 6
     var plottingMode: PlottingMode? = null
+    var currentPolarity: Polarity? = null
+    var currentMirrorType: MirrorType? = null
+    var currentRotation: Double? = null
+    var currentScale: Double? = null
 
     inline operator fun <reified T : GerberBuildingBlock> T.unaryPlus() {
         buildingBlocks += this
