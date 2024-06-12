@@ -1,7 +1,11 @@
 package gerber
 
+import lib.cryptography.md5
 import lib.string.isInteger
 import java.math.BigDecimal
+import java.time.Clock
+import java.time.format.DateTimeFormatter
+import kotlin.math.min
 
 // Cartesian coordinates where, viewed from the front,
 // the X axis points to the right → while the Y axis points upwards ↑
@@ -97,6 +101,8 @@ private fun formatAny(any: Any) = when (any) {
     is GerberWord -> any.toString()
     else -> error("Unsupported type ${any::class}")
 }
+
+private inline val Any.formatted get() = formatAny(this)
 
 fun Gerber.apertureDefinition(
     id: Int = nextApertureId++,
@@ -352,22 +358,24 @@ fun Gerber.fileAttribute(
 
 fun Gerber.apertureAttribute(
     attributeName: String,
-    vararg values: String,
+    vararg values: String?,
 ) {
     +GerberCommand(
         "%TA${GerberName(attributeName)}${
-            values.joinToString(",", prefix = ",").trim(',')
+            values.filterNotNull().joinToString(",", prefix = ",")
+                .trim(',')
         }*%"
     )
 }
 
 fun Gerber.objectAttribute(
     attributeName: String,
-    vararg values: String,
+    vararg values: String?,
 ) {
     +GerberCommand(
         "%TO${GerberName(attributeName)}${
-            values.joinToString(",", prefix = ",").trim(',')
+            values.filterNotNull().joinToString(",", prefix = ",")
+                .trim(',')
         }*%"
     )
 }
@@ -394,6 +402,7 @@ object StandardAttributes {
         const val CREATION_DATE = ".CreationDate"
         const val PROJECT_ID = ".ProjectId"
         const val MD5 = ".MD5"
+        const val GENERATION_SOFTWARE = ".GenerationSoftware"
     }
     object Aperture {
         const val APERTURE_FUNCTION = ".AperFunction"
@@ -732,4 +741,124 @@ fun Gerber.filePolarity(polarity: FilePolarity) =
     fileAttribute(
         StandardAttributes.File.FILE_POLARITY,
         polarity.name
+    )
+
+fun Gerber.sameCoordinates() =
+    fileAttribute(
+        StandardAttributes.File.SAME_COORDINATES
+    )
+
+fun Gerber.creationDate() =
+    fileAttribute(
+        StandardAttributes.File.CREATION_DATE,
+        DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(Clock.systemUTC().instant())
+    )
+
+fun Gerber.generationSoftware() =
+    fileAttribute(
+        StandardAttributes.File.GENERATION_SOFTWARE,
+        "superboringdev",
+        "pcblin",
+        "rolling"
+    )
+
+fun Gerber.projectId(id: String, guid: String, revision: String) =
+    fileAttribute(
+        StandardAttributes.File.PROJECT_ID,
+        id, guid, revision
+    )
+
+fun Gerber.md5() =
+    fileAttribute(
+        StandardAttributes.File.MD5,
+        checksumRelevantString().md5
+    )
+
+enum class ApertureFunction {
+    ViaDrill, BackDrill, ComponentDrill, MechanicalDrill,
+    CastellatedDrill, OtherDrill,
+
+    ComponentPad, SMDPad, BGAPad, ConnectorPad, HeatsinkPad,
+    ViaPad, TestPad, CastellatedPad, FiducialPad,
+    ThermalReliefPad, WasherPad, AntiPad, OtherPad,
+    Conductor, EtchedComponent, NonConductor,
+    CopperBalancing, Border, OtherCopper, ComponentMain,
+    ComponentOutline, ComponentPin,
+
+    Profile, NonMaterial, Material, Other
+}
+
+fun Gerber.apertureFunction(function: ApertureFunction, vararg arguments: String) =
+    apertureAttribute(
+        StandardAttributes.Aperture.APERTURE_FUNCTION,
+        function.name,
+        *arguments
+    )
+
+fun Gerber.drillTolerance(plusTolerance: Double, minusTolerance: Double) =
+    apertureAttribute(
+        StandardAttributes.Aperture.DRILL_TOLERANCE,
+        plusTolerance.formatted,
+        minusTolerance.formatted
+    )
+
+enum class FlashTextRepresentation(val grbStr: String) {
+    Barcode("B"), Characters("C")
+}
+
+enum class FlashTextReadability(val grbStr: String) {
+    Readable("R"), MirroredLeftRight("M")
+}
+
+fun Gerber.flashText(
+    text: String,
+    representation: FlashTextRepresentation = FlashTextRepresentation.Characters,
+    readability: FlashTextReadability = FlashTextReadability.Readable,
+    font: String? = null,
+    size: String? = null,
+    comment: String? = null
+) =
+    apertureAttribute(
+        StandardAttributes.Aperture.FLASH_TEXT,
+        text, representation.grbStr, readability.grbStr,
+        font, size, comment
+    )
+
+fun Gerber.net(netNames: List<String>) =
+    objectAttribute(
+        StandardAttributes.GraphicalObject.CAD_NET_NAME,
+        *netNames.toTypedArray()
+    )
+
+fun Gerber.pin(referenceDescriptor: String, number: String, function: String) =
+    objectAttribute(
+        StandardAttributes.GraphicalObject.PIN_NUMBER,
+        referenceDescriptor, number, function
+    )
+
+fun Gerber.componentReferenceDescriptor(referenceDescriptor: String) =
+    objectAttribute(
+        StandardAttributes.GraphicalObject.COMPONENT_REFERENCE_DESIGNATOR,
+        referenceDescriptor
+    )
+
+fun Gerber.componentCharacteristics(characteristic: String, vararg args: Any) =
+    objectAttribute(
+        ".C$characteristic", *args
+    )
+
+fun Gerber.cRotationAngle(angle: Double) = componentCharacteristics("Rot", angle)
+fun Gerber.cManufacturer(manufacturer: String) = componentCharacteristics("Mfr", manufacturer)
+fun Gerber.cManufacturerPartNumber(number: String) = componentCharacteristics("MPN", number)
+fun Gerber.cValue(value: String) = componentCharacteristics("Val", value)
+fun Gerber.cFootprint(footprint: String) = componentCharacteristics("Ftp", footprint)
+fun Gerber.cPackageName(name: String) = componentCharacteristics("PgN", name)
+fun Gerber.cPackageDescription(description: String) = componentCharacteristics("PgD", description)
+fun Gerber.cHeight(decimal: Double) = componentCharacteristics("Hgt", decimal)
+fun Gerber.cLibraryName(name: String) = componentCharacteristics("LbN", name)
+fun Gerber.cSupplier(supplierName: String, supplierPartName: String) =
+    componentCharacteristics("Sup", supplierName, supplierPartName)
+fun Gerber.cSupplier(supplierName: String, supplierPartName: String, supplierName2: String, supplierPartName2: String) =
+    componentCharacteristics(
+        "Sup", supplierName, supplierPartName, supplierName2, supplierPartName2
     )

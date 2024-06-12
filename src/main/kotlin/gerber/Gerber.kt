@@ -37,6 +37,9 @@ class Gerber {
         ).joinToString("\n")
     }
 
+    fun checksumRelevantString() =
+        buildingBlocks.joinToString("").replace("\r", "").replace("\n", "")
+
     fun usingAperture(aperture: Int, block: Gerber.() -> Unit) {
         currentAperture = aperture
         block()
