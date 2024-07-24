@@ -18,7 +18,7 @@ fun Gerber.rectangle(
  * Creates a circle according to 4.4.2
  * Circles can have zero size, see 4.3.2
  */
-fun Gerber.circle(diameter: Double, holeDiameter: Double?) =
+fun Gerber.circle(diameter: Double, holeDiameter: Double? = 0.0) =
     simpleAperture("C", diameter, holeDiameter)
 
 /**

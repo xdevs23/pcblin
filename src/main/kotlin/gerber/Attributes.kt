@@ -507,7 +507,7 @@ fun Gerber.componentReferenceDescriptor(referenceDescriptor: String) =
 
 fun Gerber.componentCharacteristics(characteristic: String, vararg args: Any) =
     objectAttribute(
-        ".C$characteristic", *args
+        ".C$characteristic", *args.map { it.toString() }.toTypedArray()
     )
 
 fun Gerber.cRotationAngle(angle: Double) = componentCharacteristics("Rot", angle)

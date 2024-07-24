@@ -1,11 +1,7 @@
 package gerber
 
-import lib.cryptography.md5
 import lib.string.isInteger
 import java.math.BigDecimal
-import java.time.Clock
-import java.time.format.DateTimeFormatter
-import kotlin.math.min
 
 // Cartesian coordinates where, viewed from the front,
 // the X axis points to the right → while the Y axis points upwards ↑
@@ -94,7 +90,7 @@ fun Gerber.simpleAperture(templateName: String, parameters: List<Any> = listOf()
 inline fun <reified N : Number?> Gerber.simpleAperture(templateName: String, vararg parameters: N) =
     simpleAperture(templateName, parameters.toList().filterNotNull())
 
-private fun formatAny(any: Any) = when (any) {
+fun formatAny(any: Any) = when (any) {
     is BigDecimal, is Double, is Float -> "%.3f".format(any)
     is Long, is Int, is Short, is Byte -> "%d".format(any)
     is String -> any
@@ -102,7 +98,7 @@ private fun formatAny(any: Any) = when (any) {
     else -> error("Unsupported type ${any::class}")
 }
 
-private inline val Any.formatted get() = formatAny(this)
+inline val Any.formatted get() = formatAny(this)
 
 fun Gerber.apertureDefinition(
     id: Int = nextApertureId++,
